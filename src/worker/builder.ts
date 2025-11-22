@@ -13,15 +13,27 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export async function buildReactProject(deploymentId: string) {
-  let projectPath = path.join(__dirname, "../../output", deploymentId); //   user/sunilkumar/vercel-build-service/output/<id>/<exact path>
+  let projectPath = path.join(__dirname, "../../output", deploymentId);
   const outputPath = path.join(__dirname, "../../builded-folder", deploymentId);
 
- if (config.root && config.root !== "") {
+  if (config.root && config.root.trim() !== "") {
     projectPath = path.join(projectPath, config.root);
   }
 
-  fs.mkdirSync(projectPath, { recursive: true });
   fs.mkdirSync(outputPath, { recursive: true });
+
+  console.log("📂 Final projectPath =", projectPath);
+
+  try {
+    console.log("📄 Files in projectPath:", fs.readdirSync(projectPath));
+  } catch (e) {
+    console.log("❌ ERROR: projectPath doesn't exist");
+  }
+
+  if (!fs.existsSync(path.join(projectPath, "package.json"))) {
+    console.error("❌ No package.json found in:", projectPath);
+    throw new Error("Project has no package.json (wrong upload or wrong root folder)");
+  }
 
   console.log(`🚀 Building project ${deploymentId}...`);
 
@@ -36,7 +48,8 @@ export async function buildReactProject(deploymentId: string) {
           set -e
           cd /src
 
-          # Install dependencies
+          echo '📦 Installing dependencies...'
+
           if [ -f pnpm-lock.yaml ]; then
             corepack enable && pnpm i --frozen-lockfile
           elif [ -f yarn.lock ]; then
@@ -45,12 +58,11 @@ export async function buildReactProject(deploymentId: string) {
             npm install --legacy-peer-deps
           fi
 
-          # Build
+          echo '⚙ Building the project...'
           (npm run build || yarn build || pnpm build || npx vite build)
 
           mkdir -p /build
 
-          # Copy output directories
           if [ -d dist ]; then cp -r dist/* /build/;
           elif [ -d build ]; then cp -r build/* /build/;
           elif [ -d out ]; then cp -r out/* /build/;
